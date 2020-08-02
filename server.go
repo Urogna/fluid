@@ -2,28 +2,96 @@ package main
 
 import (
 	"bytes"
-	"fmt"
-	"log"
-	"net/http"
-	"image"
-	"time"
 	"encoding/json"
+	"fmt"
+	"image"
+	"net/http"
+	"time"
+	"github.com/Urogna/point"
+	"os"
+    "os/exec"
 )
 
 func main() {
+	/*
+		fileServer := http.FileServer(http.Dir("./static"))
+		http.Handle("/", fileServer)
+		http.HandleFunc("/hello", helloHandler)
+		http.HandleFunc("/form", formHandler)
+		http.HandleFunc("/fluid", fluidHandler)
 
-	fileServer := http.FileServer(http.Dir("./static"))
-	http.Handle("/", fileServer)
-	http.HandleFunc("/hello", helloHandler)
-	http.HandleFunc("/form", formHandler)
-	http.HandleFunc("/fluid", fluidHandler)
-
-	fmt.Printf("Starting server at port 8080\n")
-	if err := http.ListenAndServe(":8080", nil); err != nil {
-		log.Fatal(err)
+		fmt.Printf("Starting server at port 8080\n")
+		if err := http.ListenAndServe(":8080", nil); err != nil {
+			log.Fatal(err)
+		}
+	*/
+	//var print [point.H][point.W]int
+	grid := point.FieldGrid(point.FX, point.FY, point.W, point.H)
+	balls := point.RandomMovingPoints(point.N, point.W, point.H)
+	ticker := time.NewTicker(time.Second/30)
+	point.SetAverage(grid, point.N)
+	for {
+		select {
+		case t := <-ticker.C:
+			cmd := exec.Command("clear") //Linux example, its tested
+			cmd.Stdout = os.Stdout
+			cmd.Run()
+			point.SetBallsNumber(balls, grid)
+			for i := range balls {
+				b := &balls[i]
+				//b.Print(&print)
+				b.SetAccelleration(grid)
+				b.Next()
+			}
+			printGrid2(grid)
+			//printGrid(&print)
+			point.ResetField(grid)
+			
+			fmt.Println(t.Second())
+		}
 	}
+}
 
-	
+func printGrid(g *[point.H][point.W]int) {
+	for y := range g {
+		for x := range g[y] {
+			if g[y][x] != 0 {
+				fmt.Print("0")
+				g[y][x] = 0
+			} else {
+				fmt.Print(" ")
+			}
+		}
+		fmt.Println()
+	}
+}
+
+func printGrid2(g [][]point.Field) {
+	for y := range g {
+		for x := range g[y] {
+			n := g[y][x].N
+			g[y][x].N = 0
+			switch {
+			case n >= 12:
+				fmt.Print("|:|")
+			case n >= 12 && n < 10:
+				fmt.Print(":|:")
+			case n < 10 && n >= 7:
+				fmt.Print(":::")
+			case n < 7 && n >= 5:
+				fmt.Print(":.:")
+			case n < 5 && n >= 3:
+				fmt.Print("...")
+			case n < 3 && n >= 0:
+				fmt.Print(" . ")
+			case n < 0:
+				fmt.Print("   ")
+			default:
+				fmt.Print("|||")
+			}
+		}
+		fmt.Println()
+	}
 }
 
 func helloHandler(w http.ResponseWriter, r *http.Request) {
@@ -62,7 +130,7 @@ func fluidHandler(w http.ResponseWriter, r *http.Request) {
 		case <-ticker.C:
 			p.X++
 			p.Y++
-			reqBody, err := json.Marshal(map[string]string {
+			reqBody, err := json.Marshal(map[string]string{
 				"point": p.String(),
 			})
 			if err != nil {
@@ -72,35 +140,4 @@ func fluidHandler(w http.ResponseWriter, r *http.Request) {
 			defer resp.Body.Close()
 		}
 	}
-}
-
-// MovingPoint is a Point that has a Point and accelleration assigned to it.
-type MovingPoint struct {
-	p Point
-	s Point
-	a Point
-}
-
-func (m *MovingPoint) next() {
-	m.p.Add(&m.s)
-	m.s.Add(&m.a)
-}
-
-type Field struct {
-	image.Rectangle
-	c image.Point
-}
-
-func Fld(r image.Rectangle) Field {
-	c := image.Pt((r.Min.X+r.Max.X)/2, (r.Min.Y+r.Max.Y)/2)
-	return Field{r, c}
-}
-
-type Point struct {
-	x, y float64
-}
-
-func (s1 *Point) Add(s2 *Point) {
-	s1.x += s2.x
-	s1.y += s2.y
 }
